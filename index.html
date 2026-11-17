@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Footage – Markteintritt simulieren</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  color-scheme: light;
+  --bg: #eef3ee;
+  --surface: #ffffff;
+  --ink: #15231b;
+  --ink-2: #4b5b51;
+  --ink-3: #6f7d74;
+  --line: #d5ded7;
+  --accent: #1d6b47;
+  --accent-soft: #dcebe2;
+  --board: #134a32;
+  --board-line: rgba(255,255,255,.16);
+  --board-ink: #ffffff;
+  --board-ink-2: #bcd6c7;
+  --board-neg: #ffb3a8;
+  --s1: #2a78d6;   /* Hardware */
+  --s2: #eb6834;   /* Abo */
+  --pos: #2a78d6;
+  --neg: #e34948;
+  --grid: #e3e9e4;
+  --cond: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+  --body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --bg: #121a15;
+    --surface: #1a241e;
+    --ink: #eef3ef;
+    --ink-2: #b9c6bd;
+    --ink-3: #93a198;
+    --line: #2f3b33;
+    --accent: #5fbf8c;
+    --accent-soft: #24382c;
+    --board: #0d3a26;
+    --s1: #3987e5;
+    --s2: #d95926;
+    --pos: #3987e5;
+    --neg: #e66767;
+    --grid: #2a352e;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 var(--body); }
+h1, h2, h3 { font-family: var(--cond); font-weight: 700; line-height: 1.1; margin: 0; }
+button, select, input { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+.wrap { max-width: 1280px; margin: 0 auto; padding: 24px 20px 96px; }
+header.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px 24px; margin-bottom: 20px; }
+header.top h1 { font-size: clamp(2rem, 5vw, 3rem); letter-spacing: .01em; }
+header.top p { margin: 6px 0 0; color: var(--ink-2); max-width: 60ch; }
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 8px 14px; cursor: pointer; font-weight: 600; }
+.btn:hover { border-color: var(--accent); }
+
+.layout { display: grid; grid-template-columns: 380px 1fr; gap: 24px; align-items: start; }
+.settings { position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow: auto; padding-right: 4px; }
+.results { display: grid; gap: 20px; min-width: 0; }
+
+/* Einstellungen */
+.group { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 16px 6px; margin-bottom: 14px; }
+.group h2 { font-size: 1.5rem; }
+.group .hint { color: var(--ink-3); font-size: .9rem; margin: 2px 0 10px; }
+.ctrl { padding: 10px 0 12px; border-top: 1px solid var(--line); }
+.ctrl:first-of-type { border-top: 0; }
+.ctrl .row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.ctrl label { font-weight: 600; font-size: .95rem; }
+.ctrl output { font-family: var(--cond); font-weight: 600; font-size: 1.15rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ctrl .note { color: var(--ink-3); font-size: .82rem; margin-top: 4px; }
+.ctrl input[type=range] { width: 100%; margin: 8px 0 0; accent-color: var(--accent); height: 28px; }
+.seg { display: flex; gap: 6px; margin-top: 8px; }
+.seg button { flex: 1; border: 1px solid var(--line); background: transparent; border-radius: 8px; padding: 7px 8px; cursor: pointer; font-size: .9rem; font-weight: 600; }
+.seg button[aria-pressed=true] { background: var(--accent-soft); border-color: var(--accent); color: var(--ink); }
+.ctrl select { margin-top: 8px; width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+
+/* Anzeigetafel */
+.board { background: var(--board); color: var(--board-ink); border-radius: 14px; padding: 18px 18px 8px; overflow-x: auto;
+}
+.board h2 { font-size: 1.35rem; color: var(--board-ink-2); font-weight: 600; margin-bottom: 8px; }
+.board table { width: 100%; border-collapse: collapse; min-width: 560px; }
+.board th, .board td { padding: 8px 10px; text-align: right; font-variant-numeric: tabular-nums; }
+.board thead th { font-family: var(--cond); font-weight: 600; color: var(--board-ink-2); font-size: 1rem; border-bottom: 1px solid var(--board-line); }
+.board tbody th { text-align: left; font-weight: 500; color: var(--board-ink-2); font-size: .95rem; white-space: nowrap; }
+.board tbody td { font-family: var(--cond); font-weight: 700; font-size: 1.5rem; line-height: 1.1; }
+.board tbody tr + tr th, .board tbody tr + tr td { border-top: 1px solid var(--board-line); }
+.board td.neg { color: var(--board-neg); }
+.board .unit { font-size: .8rem; font-weight: 500; color: var(--board-ink-2); font-family: var(--body); }
+
+/* Kennzahlen */
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.stat { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+.stat .k { color: var(--ink-2); font-size: .9rem; }
+.stat .v { font-family: var(--cond); font-weight: 700; font-size: 1.75rem; line-height: 1.1; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.stat .s { color: var(--ink-3); font-size: .82rem; margin-top: 2px; }
+.stat .v.bad { color: var(--neg); }
+.stat .v.nw { white-space: nowrap; font-size: 1.5rem; }
+
+/* Diagramme */
+.charts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.chart { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px 10px; position: relative; }
+.chart h3 { font-size: 1.25rem; }
+.legend { display: flex; gap: 16px; font-size: .85rem; color: var(--ink-2); margin: 6px 0 4px; flex-wrap: wrap; }
+.legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; background: var(--c); vertical-align: -1px; }
+.chart svg { width: 100%; height: auto; display: block; }
+.chart svg text { font-family: var(--body); fill: var(--ink-2); font-size: 13px; }
+.chart svg .val { fill: var(--ink); font-weight: 600; }
+.tip { position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: .85rem; box-shadow: 0 4px 14px rgba(0,0,0,.12); display: none; white-space: nowrap; z-index: 2; }
+.tip b { font-family: var(--cond); font-size: 1rem; }
+
+details.box { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; }
+details.box summary { cursor: pointer; font-family: var(--cond); font-weight: 700; font-size: 1.25rem; }
+details.box table { width: 100%; border-collapse: collapse; margin-top: 10px; font-variant-numeric: tabular-nums; font-size: .92rem; }
+details.box th, details.box td { padding: 6px 8px; text-align: right; border-top: 1px solid var(--line); }
+details.box th:first-child, details.box td:first-child { text-align: left; }
+details.box tr.sum td { font-weight: 600; }
+details.box ul { margin: 10px 0 4px; padding-left: 20px; color: var(--ink-2); }
+details.box li { margin-bottom: 6px; }
+.scroll { overflow-x: auto; }
+
+/* Mobile Leiste */
+.bar { display: none; }
+
+@media (max-width: 1000px) {
+  .layout { grid-template-columns: 1fr; }
+  .settings { position: static; max-height: none; overflow: visible; padding: 0; order: 2; }
+  .results { order: 1; }
+  .stats { grid-template-columns: repeat(2, 1fr); }
+  .charts { grid-template-columns: 1fr; }
+  .bar { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; gap: 8px; justify-content: space-around;
+    background: var(--board); color: var(--board-ink); padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); }
+  .bar div { text-align: center; font-size: .78rem; color: var(--board-ink-2); }
+  .bar b { display: block; font-family: var(--cond); font-size: 1.25rem; color: var(--board-ink); }
+  .bar b.neg { color: var(--board-neg); }
+}
+@media (max-width: 600px) {
+  .wrap { padding: 16px 12px 104px; }
+  .board { padding: 14px 6px 6px; }
+  .board h2 { padding-left: 6px; }
+  .board table { min-width: 0; }
+  .board th, .board td { padding: 7px 3px; }
+  .board thead th { font-size: .9rem; }
+  .board thead .long { display: none; }
+  .board tbody th { font-size: .78rem; white-space: normal; line-height: 1.2; width: 26%; }
+  .board tbody td { font-size: .98rem; }
+  .board .unit { display: block; font-size: .7rem; }
+  .board thead .short::before { content: "J"; }
+  .stat { padding: 12px; }
+  .stat .v { font-size: 1.35rem; }
+  .bar div { font-size: .7rem; }
+  .bar b { font-size: 1.05rem; white-space: nowrap; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .board tbody td { transition: color .2s; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Footage – Markteintritt simulieren</h1>
+      <p>Stell die 4P ein und sieh sofort, wie sich Kunden, Umsatz und Ergebnis in den ersten fünf Jahren entwickeln. Startwerte aus der Datenbasis.</p>
+    </div>
+    <button class="btn" id="reset" type="button">Auf Startwerte zurücksetzen</button>
+  </header>
+
+  <div class="layout">
+    <aside class="settings" id="settings" aria-label="Einstellungen"></aside>
+
+    <main class="results">
+      <section class="board" aria-labelledby="board-h">
+        <h2 id="board-h">Ergebnis Jahr 1–5</h2>
+        <table id="board"></table>
+      </section>
+
+      <section class="stats" id="stats" aria-label="Kennzahlen"></section>
+
+      <section class="charts">
+        <div class="chart" id="c-umsatz">
+          <h3>Umsatz nach Quelle</h3>
+          <div class="legend"><span style="--c:var(--s1)">Hardware</span><span style="--c:var(--s2)">Abo</span></div>
+          <div class="plot"></div><div class="tip"></div>
+        </div>
+        <div class="chart" id="c-ebit">
+          <h3>Ergebnis (EBIT)</h3>
+          <div class="legend"><span style="--c:var(--pos)">Gewinn</span><span style="--c:var(--neg)">Verlust</span></div>
+          <div class="plot"></div><div class="tip"></div>
+        </div>
+      </section>
+
+      <details class="box">
+        <summary>Gewinn- und Verlustrechnung</summary>
+        <div class="scroll"><table id="guv"></table></div>
+      </details>
+
+      <details class="box">
+        <summary>So rechnet das Tool</summary>
+        <ul>
+          <li><b>Marktpotenzial:</b> Mannschaften je Land × 35 % leistungsorientiert × 60 % langfristige Verbreitung von Videoanalyse × erreichbarer Marktanteil. Österreich und Schweiz zählen erst ab ihrem Eintrittsjahr.</li>
+          <li><b>Neue Teams:</b> Bass-Modell mit p = 0,04 (Werbung, Vertrieb) und q = 0,45 (Mundpropaganda). Das Empfehlungsprogramm stärkt q.</li>
+          <li><b>Wirkung der 4P:</b> Die Neukunden werden mit vier Faktoren multipliziert, die bei den Startwerten genau 1 sind. Preis: Paketpreis im Vergleich zu Veo, Elastizität −1,25. Werbung: Marketingbudget, Elastizität 0,12. Vertrieb: Vertriebsmitarbeiter, Elastizität 0,31. Produkt: Qualität im Vergleich zum Wettbewerb, steigt mit F&E und Premium-Chip.</li>
+          <li><b>Kunden:</b> Aktive Teams = Teams aus dem Vorjahr minus Kündigungen plus neue Teams. Ein Verein teilt sich eine Kamera mit durchschnittlich 1,8 Teams.</li>
+          <li><b>Umsatz:</b> Kameras × (Kamera- + Stativpreis, im Fachhandel abzüglich Händlermarge) plus aktive Teams × Abo-Preis × 12.</li>
+          <li><b>Kosten:</b> Herstellkosten je Set (sinken jedes Jahr), Cloud und Support 19 € pro Team und Monat, Marketing, Vertrieb (75.000 € pro Person), F&E, Fixkosten und die Abschreibung der Einmalkosten von 1,655 Mio. € über 5 Jahre.</li>
+          <li><b>Kassenstand:</b> Startkapital minus Einmalkosten, dann jedes Jahr plus Ergebnis vor Abschreibung. Vereinfacht ohne Steuern, Zinsen und Lagerbestand.</li>
+        </ul>
+      </details>
+    </main>
+  </div>
+</div>
+
+<div class="bar" aria-hidden="true">
+  <div>Umsatz Jahr 5<b id="bar-u">–</b></div>
+  <div>EBIT Jahr 5<b id="bar-e">–</b></div>
+  <div>Tiefster Kassenstand<b id="bar-k">–</b></div>
+</div>
+
+<script>
+// ---------- Einstellbare Variablen (Startwerte aus der Tabelle) ----------
+const GROUPS = [
+  { id: 'product', title: 'Product', hint: 'Was bieten wir an?' },
+  { id: 'price', title: 'Price', hint: 'Was kostet es den Verein?' },
+  { id: 'place', title: 'Place', hint: 'Wo und wie verkaufen wir?' },
+  { id: 'promotion', title: 'Promotion', hint: 'Wie werden wir bekannt?' },
+  { id: 'markt', title: 'Markt & Annahmen', hint: 'Rahmenbedingungen' },
+];
+
+const PARAMS = [
+  // Product
+  { key: 'kiChip', g: 'product', label: 'KI-Chip', type: 'choice', value: 0, options: ['Standard', 'Premium (NVIDIA Jetson)'], note: 'Premium: +250 € Herstellkosten, bessere Analyse' },
+  { key: 'fue', g: 'product', label: 'F&E-Budget pro Jahr', unit: '€', value: 850000, min: 300000, max: 2000000, step: 50000, note: 'Mehr F&E verbessert das Produkt Jahr für Jahr' },
+  { key: 'hk', g: 'product', label: 'Herstellkosten pro Set (Jahr 1)', unit: '€', value: 512.5, min: 329, max: 1002, step: 0.5, note: 'Kamera + Stativ + Zubehör, frei EU-Lager' },
+  { key: 'lernkurve', g: 'product', label: 'Kostensenkung pro Jahr', unit: '%', value: 8, min: 4, max: 12, step: 0.5 },
+  // Price
+  { key: 'preisKamera', g: 'price', label: 'Preis Kamera', unit: '€ netto', value: 999, min: 699, max: 1499, step: 10, note: 'Veo Cam 3: 1.199 € Liste' },
+  { key: 'preisStativ', g: 'price', label: 'Preis Stativ', unit: '€ netto', value: 249, min: 199, max: 399, step: 10 },
+  { key: 'abo', g: 'price', label: 'Ø Abo-Preis pro Team', unit: '€ / Monat', value: 59, min: 35, max: 99, step: 1, note: 'Mix aus Starter 39 €, Pro 79 €, Club 249 € (≈ 6 Teams)' },
+  { key: 'rabatt', g: 'price', label: 'Einführungsrabatt Kamera (nur Jahr 1)', unit: '%', value: 30, min: 0, max: 50, step: 1 },
+  // Place
+  { key: 'eintrittAT', g: 'place', label: 'Markteintritt Österreich', type: 'year', value: 2 },
+  { key: 'eintrittCH', g: 'place', label: 'Markteintritt Schweiz', type: 'year', value: 3 },
+  { key: 'handel', g: 'place', label: 'Anteil Verkauf über Fachhandel', unit: '%', value: 20, min: 0, max: 60, step: 1, note: 'Rest: eigener Online-Shop und Direktvertrieb' },
+  { key: 'marge', g: 'place', label: 'Händlermarge', unit: '%', value: 30, min: 25, max: 40, step: 1 },
+  { key: 'vm', g: 'place', label: 'Vertriebsmitarbeiter', unit: 'Personen', value: 5, min: 0, max: 15, step: 1, note: 'je 75.000 € pro Jahr' },
+  // Promotion
+  { key: 'marketing', g: 'promotion', label: 'Marketingbudget pro Jahr', unit: '€', value: 520000, min: 0, max: 1500000, step: 10000, note: 'Online-Werbung, Messen, Trainer-Botschafter, PR' },
+  { key: 'empfehlung', g: 'promotion', label: 'Empfehlungsprogramm', type: 'choice', value: 1, options: ['Aus', 'An (100 € Prämie)'], note: 'Mehr Mundpropaganda, kostet 100 € je geworbenem Team' },
+  // Markt & Annahmen
+  { key: 'marktanteil', g: 'markt', label: 'Erreichbarer Marktanteil', unit: '%', value: 30, min: 15, max: 40, step: 1, note: 'Anteil am langfristigen Markt für Videoanalyse' },
+  { key: 'churn', g: 'markt', label: 'Kündigungen pro Jahr', unit: '% der Teams', value: 15, min: 8, max: 30, step: 1 },
+  { key: 'veoPaket', g: 'markt', label: 'Preis Konkurrenzpaket (Veo, Jahr 1)', unit: '€ netto', value: 2397, min: 1747, max: 2746, step: 10, note: 'Kamera + Stativ + 12 Monate Abo' },
+  { key: 'fixkosten', g: 'markt', label: 'Fixkosten Verwaltung & Marketing-Team', unit: '€ / Jahr', value: 700000, min: 300000, max: 1500000, step: 10000 },
+  { key: 'startkapital', g: 'markt', label: 'Startkapital', unit: '€', value: 6500000, min: 4000000, max: 9000000, step: 100000 },
+];
+
+// ---------- Feste Annahmen (aus der Tabelle, hier nicht einstellbar) ----------
+const FIX = {
+  teams: { DE: 144007, AT: 14000, CH: 12000 }, // Mannschaften (DFB 2025/26; AT/CH geschätzt)
+  relevant: 0.35,         // leistungsorientierte Teams
+  verbreitung: 0.60,      // langfristige Verbreitung Videoanalyse
+  bassP: 0.04, bassQ: 0.45,
+  teamsProKamera: 1.8,
+  betriebProTeam: 19,     // Cloud 15 € + Support 4 € pro Team und Monat
+  kostenVM: 75000,
+  einmalkosten: 1655000,  // Entwicklung, Werkzeuge, Zertifizierung, Software, Daten, Marke
+  afaJahre: 5,
+  chipAufpreis: 250, chipScore: 0.5,
+  scoreStart: 6.5, scoreWettbewerb: 7.0, wettbewerbFortschritt: 0.2, scoreProFuE: 0.05, // je 100.000 €
+  elastPreis: -1.25, elastWerbung: 0.12, elastVertrieb: 0.31, elastQualitaet: 1.5,
+  inflation: 0.02,
+  praemie: 100, empfehlungsQuote: 0.15, empfehlungsEffekt: 0.87,
+};
+
+function defaults() {
+  const v = {};
+  for (const p of PARAMS) v[p.key] = p.value;
+  return v;
+}
+
+// ---------- Rechenmodell ----------
+function simulate(v) {
+  const d = defaults();
+  const pct = x => x / 100;
+  const markets = [
+    { id: 'DE', start: 1 },
+    { id: 'AT', start: v.eintrittAT },
+    { id: 'CH', start: v.eintrittCH },
+  ].map(m => ({ ...m, pot: FIX.teams[m.id] * FIX.relevant * FIX.verbreitung * pct(v.marktanteil), cum: 0, act: 0 }));
+
+  const paket = (pk, ps, ab, rb) => pk * (1 - rb) + ps + 12 * ab;
+  const refIndex = paket(d.preisKamera, d.preisStativ, d.abo, 0) / d.veoPaket;
+  const q = FIX.bassQ * (v.empfehlung ? 1 : FIX.empfehlungsEffekt);
+
+  let kasse = v.startkapital - FIX.einmalkosten;
+  let activePrev = 0;
+  const rows = [];
+  for (let y = 1; y <= 5; y++) {
+    const rabatt = y === 1 ? pct(v.rabatt) : 0;
+    // Multiplikatoren der 4P (Basiswerte = 1)
+    const preisIndex = paket(v.preisKamera, v.preisStativ, v.abo, rabatt) / (v.veoPaket * Math.pow(1 + FIX.inflation, y - 1));
+    const mPreis = Math.pow(preisIndex / refIndex, FIX.elastPreis);
+    const mWerbung = Math.pow(Math.max(v.marketing, 0.02 * d.marketing) / d.marketing, FIX.elastWerbung);
+    const mVertrieb = Math.pow((v.vm + 0.5) / (d.vm + 0.5), FIX.elastVertrieb);
+    const score = Math.min(10, FIX.scoreStart + v.kiChip * FIX.chipScore + (y - 1) * v.fue / 100000 * FIX.scoreProFuE);
+    const scoreW = FIX.scoreWettbewerb + (y - 1) * FIX.wettbewerbFortschritt;
+    const mQualitaet = Math.pow((score / scoreW) / (FIX.scoreStart / FIX.scoreWettbewerb), FIX.elastQualitaet);
+    const mult = Math.min(3, Math.max(0.1, mPreis * mWerbung * mVertrieb * mQualitaet));
+
+    // Neue Teams je Markt (Bass-Modell)
+    let neu = 0, potenzial = 0, kum = 0;
+    for (const m of markets) {
+      if (y >= m.start) {
+        const rest = Math.max(0, m.pot - m.cum);
+        const n = Math.min(rest, (FIX.bassP + q * m.cum / m.pot) * rest * mult);
+        m.cum += n;
+        m.act = m.act * (1 - pct(v.churn)) + n;
+        neu += n;
+        potenzial += m.pot;
+        kum += m.cum;
+      }
+    }
+    const aktiv = markets.reduce((s, m) => s + m.act, 0);
+    const avgAktiv = (activePrev + aktiv) / 2;
+    const kameras = neu / FIX.teamsProKamera;
+
+    // Umsatz
+    const preisSet = v.preisKamera * (1 - rabatt) + v.preisStativ;
+    const umsatzHW = kameras * preisSet * (1 - pct(v.handel) * pct(v.marge));
+    const umsatzAbo = avgAktiv * v.abo * 12;
+    const umsatz = umsatzHW + umsatzAbo;
+
+    // Kosten
+    const hkSet = (v.hk + v.kiChip * FIX.chipAufpreis) * Math.pow(1 - pct(v.lernkurve), y - 1);
+    const kHW = kameras * hkSet;
+    const kBetrieb = avgAktiv * FIX.betriebProTeam * 12;
+    const kEmpfehlung = v.empfehlung ? neu * FIX.empfehlungsQuote * FIX.praemie : 0;
+    const kMarketing = v.marketing + kEmpfehlung;
+    const kVertrieb = v.vm * FIX.kostenVM;
+    const kFuE = v.fue;
+    const kFix = v.fixkosten;
+    const afa = y <= FIX.afaJahre ? FIX.einmalkosten / FIX.afaJahre : 0;
+    const db = umsatz - kHW - kBetrieb;
+    const ebit = db - kMarketing - kVertrieb - kFuE - kFix - afa;
+    kasse += ebit + afa;
+
+    rows.push({
+      y, neu, aktiv, kameras, potenzial, kum, score, mult,
+      umsatzHW, umsatzAbo, umsatz,
+      kHW, kBetrieb, kMarketing, kVertrieb, kFuE, kFix, afa, db, ebit, kasse,
+      cac: neu > 0 ? (kMarketing + kVertrieb) / neu : 0,
+    });
+    activePrev = aktiv;
+  }
+  const breakEven = rows.find(r => r.ebit > 0);
+  const minKasse = Math.min(v.startkapital - FIX.einmalkosten, ...rows.map(r => r.kasse));
+  return { rows, breakEven: breakEven ? breakEven.y : null, minKasse, kasse0: v.startkapital - FIX.einmalkosten };
+}
+
+if (typeof module !== 'undefined') module.exports = { PARAMS, GROUPS, FIX, defaults, simulate };
+
+
+// ---------- Formatierung ----------
+const nf0 = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 0 });
+const nf1 = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 1 });
+const nf2 = new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const nfAx = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 2 });
+const minus = s => s.replace('-', '\u2212');
+const mio = x => minus(nf2.format(x / 1e6));
+const mioEur = x => mio(x) + ' Mio. €';
+
+function fmtValue(p, val) {
+  if (p.type === 'choice') return p.options[val];
+  if (p.type === 'year') return val > 5 ? 'kein Eintritt' : 'Jahr ' + val;
+  const n = p.step >= 1 ? nf0.format(val) : (p.unit.startsWith('€') ? nf2.format(val) : nf1.format(val));
+  return n + ' ' + p.unit;
+}
+
+// ---------- Zustand ----------
+const STORE = 'footage-sim-v1';
+let state = defaults();
+try {
+  const saved = JSON.parse(localStorage.getItem(STORE) || 'null');
+  if (saved) for (const k in state) if (k in saved) state[k] = saved[k];
+} catch (e) {}
+function save() { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (e) {} }
+
+// ---------- Einstellungen aufbauen ----------
+const settingsEl = document.getElementById('settings');
+function buildSettings() {
+  settingsEl.innerHTML = '';
+  for (const g of GROUPS) {
+    const box = document.createElement('section');
+    box.className = 'group';
+    box.innerHTML = `<h2>${g.title}</h2><div class="hint">${g.hint}</div>`;
+    for (const p of PARAMS.filter(p => p.g === g.id)) {
+      const c = document.createElement('div');
+      c.className = 'ctrl';
+      const id = 'in-' + p.key;
+      let input = '';
+      if (p.type === 'choice') {
+        input = `<div class="seg" role="group" aria-label="${p.label}">` +
+          p.options.map((o, i) => `<button type="button" data-key="${p.key}" data-val="${i}" aria-pressed="${state[p.key] === i}">${o}</button>`).join('') + '</div>';
+      } else if (p.type === 'year') {
+        input = `<select id="${id}" data-key="${p.key}">` +
+          [1, 2, 3, 4, 5, 6].map(y => `<option value="${y}" ${state[p.key] === y ? 'selected' : ''}>${y > 5 ? 'kein Eintritt' : 'Jahr ' + y}</option>`).join('') + '</select>';
+      } else {
+        input = `<input type="range" id="${id}" data-key="${p.key}" min="${p.min}" max="${p.max}" step="${p.step}" value="${state[p.key]}">`;
+      }
+      const showOut = p.type !== 'choice' && p.type !== 'year';
+      c.innerHTML = `<div class="row"><label ${p.type === 'choice' ? '' : `for="${id}"`}>${p.label}</label>${showOut ? `<output id="out-${p.key}">${fmtValue(p, state[p.key])}</output>` : ''}</div>${input}${p.note ? `<div class="note">${p.note}</div>` : ''}`;
+      box.appendChild(c);
+    }
+    settingsEl.appendChild(box);
+  }
+}
+
+settingsEl.addEventListener('input', e => {
+  const k = e.target.dataset.key; if (!k) return;
+  const p = PARAMS.find(p => p.key === k);
+  state[k] = Number(e.target.value);
+  const out = document.getElementById('out-' + k);
+  if (out) out.textContent = fmtValue(p, state[k]);
+  update();
+});
+settingsEl.addEventListener('click', e => {
+  const b = e.target.closest('.seg button'); if (!b) return;
+  state[b.dataset.key] = Number(b.dataset.val);
+  b.parentElement.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b));
+  update();
+});
+document.getElementById('reset').addEventListener('click', () => { state = defaults(); buildSettings(); update(); });
+
+// ---------- Ergebnisse ----------
+function renderBoard(res) {
+  const r = res.rows;
+  const lines = [
+    ['Neue Teams', x => nf0.format(x.neu), ''],
+    ['Aktive Teams', x => nf0.format(x.aktiv), ''],
+    ['Verkaufte Kameras', x => nf0.format(x.kameras), ''],
+    ['Umsatz', x => mio(x.umsatz), 'Mio. €'],
+    ['EBIT', x => mio(x.ebit), 'Mio. €', x => x.ebit < 0],
+    ['Kassenstand', x => mio(x.kasse), 'Mio. €', x => x.kasse < 0],
+  ];
+  let h = '<thead><tr><th scope="col"><span class="sr">Kennzahl</span></th>' + r.map(x => `<th scope="col"><span class="long">Jahr </span><span aria-hidden="true" class="short"></span>${x.y}</th>`).join('') + '</tr></thead><tbody>';
+  for (const [label, f, unit, neg] of lines) {
+    h += `<tr><th scope="row">${label}${unit ? ` <span class="unit">${unit}</span>` : ''}</th>` +
+      r.map(x => `<td class="${neg && neg(x) ? 'neg' : ''}">${f(x)}</td>`).join('') + '</tr>';
+  }
+  document.getElementById('board').innerHTML = h + '</tbody>';
+}
+
+function renderStats(res) {
+  const last = res.rows[4];
+  const cacAvg = res.rows.reduce((s, x) => s + x.kMarketing + x.kVertrieb, 0) / res.rows.reduce((s, x) => s + x.neu, 0);
+  const items = [
+    { k: 'Break-even', v: res.breakEven ? 'Jahr ' + res.breakEven : 'nicht in 5 Jahren', s: 'erstes Jahr mit positivem EBIT', bad: !res.breakEven },
+    { k: 'Tiefster Kassenstand', v: mioEur(res.minKasse), s: res.minKasse < 0 ? 'so viel Kapital fehlt zusätzlich' : 'Startkapital reicht aus', bad: res.minKasse < 0, nw: true },
+    { k: 'Markt ausgeschöpft (Jahr 5)', v: nf1.format(last.kum / last.potenzial * 100) + ' %', s: nf0.format(last.potenzial) + ' Teams Potenzial' },
+    { k: 'Ø Kosten je Neukunde', v: nf0.format(cacAvg) + ' €', s: 'Marketing + Vertrieb je neuem Team' },
+  ];
+  document.getElementById('stats').innerHTML = items.map(i =>
+    `<div class="stat"><div class="k">${i.k}</div><div class="v ${i.bad ? 'bad' : ''} ${i.nw ? 'nw' : ''}">${i.v}</div><div class="s">${i.s}</div></div>`).join('');
+  const bu = document.getElementById('bar-u'), be = document.getElementById('bar-e'), bk = document.getElementById('bar-k');
+  bu.textContent = mioEur(last.umsatz);
+  be.textContent = mioEur(last.ebit); be.className = last.ebit < 0 ? 'neg' : '';
+  bk.textContent = mioEur(res.minKasse); bk.className = res.minKasse < 0 ? 'neg' : '';
+}
+
+function renderGuV(res) {
+  const r = res.rows;
+  const lines = [
+    ['Umsatz Hardware', x => x.umsatzHW],
+    ['Umsatz Abo', x => x.umsatzAbo],
+    ['Umsatz gesamt', x => x.umsatz, true],
+    ['Herstellkosten Kameras', x => -x.kHW],
+    ['Cloud & Support', x => -x.kBetrieb],
+    ['Deckungsbeitrag', x => x.db, true],
+    ['Marketing (inkl. Empfehlungsprämien)', x => -x.kMarketing],
+    ['Vertrieb', x => -x.kVertrieb],
+    ['F&E', x => -x.kFuE],
+    ['Fixkosten', x => -x.kFix],
+    ['Abschreibung Einmalkosten', x => -x.afa],
+    ['EBIT', x => x.ebit, true],
+    ['Kassenstand Jahresende', x => x.kasse, true],
+  ];
+  let h = '<thead><tr><th>in €</th>' + r.map(x => `<th>Jahr ${x.y}</th>`).join('') + '</tr></thead><tbody>';
+  for (const [l, f, sum] of lines) h += `<tr class="${sum ? 'sum' : ''}"><td>${l}</td>${r.map(x => `<td>${minus(nf0.format(f(x)))}</td>`).join('')}</tr>`;
+  document.getElementById('guv').innerHTML = h + '</tbody>';
+}
+
+// ---------- Diagramme (SVG) ----------
+const W = 440, H = 250, PAD = { l: 46, r: 8, t: 26, b: 30 };
+function niceStep(range, n = 4) {
+  if (range <= 0) return 1;
+  const raw = range / n, e = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / e;
+  return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * e;
+}
+function barPath(x, y0, y1, w, r) {
+  // Balken mit 4px-Rundung am Datenende, flach an der Grundlinie
+  const up = y1 < y0, h = Math.abs(y1 - y0); r = Math.min(r, h, w / 2);
+  if (h < 0.5) return '';
+  return up
+    ? `M${x},${y0}V${y1 + r}Q${x},${y1} ${x + r},${y1}H${x + w - r}Q${x + w},${y1} ${x + w},${y1 + r}V${y0}Z`
+    : `M${x},${y0}V${y1 - r}Q${x},${y1} ${x + r},${y1}H${x + w - r}Q${x + w},${y1} ${x + w},${y1 - r}V${y0}Z`;
+}
+function axis(min, max, step, ys) {
+  let s = '';
+  for (let v = min; v <= max + step / 2; v += step) {
+    const y = ys(v), zero = Math.abs(v) < step / 2;
+    s += `<line x1="${PAD.l}" x2="${W - PAD.r}" y1="${y}" y2="${y}" stroke="var(--grid)" stroke-width="${zero ? 1.5 : 1}"/>`;
+    s += `<text x="${PAD.l - 8}" y="${y + 4}" text-anchor="end">${zero ? '0' : minus(nfAx.format(v / 1e6))}</text>`;
+  }
+  return s + `<text x="${PAD.l - 8}" y="${PAD.t - 12}" text-anchor="end">Mio. €</text>`;
+}
+function attachTip(el, groups) {
+  const tip = el.querySelector('.tip'), svg = el.querySelector('svg');
+  svg.querySelectorAll('.hit').forEach((h, i) => {
+    const show = ev => {
+      tip.innerHTML = groups[i]; tip.style.display = 'block';
+      const box = el.getBoundingClientRect(), hb = h.getBoundingClientRect();
+      let left = hb.left - box.left + hb.width / 2 - tip.offsetWidth / 2;
+      left = Math.max(4, Math.min(left, box.width - tip.offsetWidth - 4));
+      tip.style.left = left + 'px'; tip.style.top = (hb.top - box.top + 8) + 'px';
+    };
+    h.addEventListener('pointerenter', show); h.addEventListener('click', show);
+    h.addEventListener('pointerleave', () => tip.style.display = 'none');
+  });
+}
+
+function renderUmsatz(res) {
+  const r = res.rows, el = document.getElementById('c-umsatz');
+  const raw = Math.max(...r.map(x => x.umsatz)), step = niceStep(raw), max = Math.max(step, Math.ceil(raw / step) * step);
+  const ys = v => PAD.t + (H - PAD.t - PAD.b) * (1 - v / max);
+  const slot = (W - PAD.l - PAD.r) / r.length, bw = Math.min(56, slot * 0.5);
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Umsatz nach Quelle, Jahr 1 bis 5">` + axis(0, max, step, ys);
+  r.forEach((x, i) => {
+    const cx = PAD.l + slot * i + slot / 2, x0 = cx - bw / 2;
+    const yHW = ys(x.umsatzHW), yTot = ys(x.umsatz);
+    s += `<path d="${barPath(x0, ys(0), yHW, bw, 0)}" fill="var(--s1)"/>`;
+    s += `<path d="${barPath(x0, yHW - 2, yTot, bw, 4)}" fill="var(--s2)"/>`;
+    s += `<text class="val" x="${cx}" y="${yTot - 6}" text-anchor="middle">${mio(x.umsatz)}</text>`;
+    s += `<text x="${cx}" y="${H - 8}" text-anchor="middle">Jahr ${x.y}</text>`;
+    s += `<rect class="hit" x="${cx - slot / 2}" y="${PAD.t}" width="${slot}" height="${H - PAD.t - PAD.b}" fill="transparent"/>`;
+  });
+  el.querySelector('.plot').innerHTML = s + '</svg>';
+  attachTip(el, r.map(x => `<b>Jahr ${x.y}</b><br>Hardware: ${mioEur(x.umsatzHW)}<br>Abo: ${mioEur(x.umsatzAbo)}<br>Gesamt: ${mioEur(x.umsatz)}`));
+}
+
+function renderEbit(res) {
+  const r = res.rows, el = document.getElementById('c-ebit');
+  const hiRaw = Math.max(0, ...r.map(x => x.ebit)), loRaw = Math.min(0, ...r.map(x => x.ebit));
+  const step = niceStep(hiRaw - loRaw);
+  const top = Math.ceil(hiRaw / step) * step, bottom = Math.floor(loRaw / step) * step;
+  const ys = v => PAD.t + (H - PAD.t - PAD.b) * (top - v) / ((top - bottom) || 1);
+  const slot = (W - PAD.l - PAD.r) / r.length, bw = Math.min(56, slot * 0.5);
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="EBIT, Jahr 1 bis 5">` + axis(bottom, top, step, ys);
+  r.forEach((x, i) => {
+    const cx = PAD.l + slot * i + slot / 2, x0 = cx - bw / 2, y = ys(x.ebit), neg = x.ebit < 0;
+    s += `<path d="${barPath(x0, ys(0), y, bw, 4)}" fill="var(${neg ? '--neg' : '--pos'})"/>`;
+    s += `<text class="val" x="${cx}" y="${neg ? y + 16 : y - 6}" text-anchor="middle">${mio(x.ebit)}</text>`;
+    s += `<text x="${cx}" y="${H - 8}" text-anchor="middle">Jahr ${x.y}</text>`;
+    s += `<rect class="hit" x="${cx - slot / 2}" y="${PAD.t}" width="${slot}" height="${H - PAD.t - PAD.b}" fill="transparent"/>`;
+  });
+  el.querySelector('.plot').innerHTML = s + '</svg>';
+  attachTip(el, r.map(x => `<b>Jahr ${x.y}</b><br>EBIT: ${mioEur(x.ebit)}<br>Deckungsbeitrag: ${mioEur(x.db)}`));
+}
+
+function update() {
+  const res = simulate(state);
+  renderBoard(res); renderStats(res); renderGuV(res); renderUmsatz(res); renderEbit(res);
+  save();
+}
+
+buildSettings();
+update();
+</script>
+<style>.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);}</style>
+</body>
+</html>
